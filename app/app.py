@@ -1,11 +1,17 @@
 import streamlit as st
-import requests
+import numpy as np
+from tensorflow.keras.models import load_model
 
 st.set_page_config(page_title="Anomaly Detection", layout="centered")
 
-st.title("🔥 Anomaly Detection System")
+st.title("🔥 Industrial Fault Detection System")
 
 st.write("Enter temperature values to check anomaly:")
+
+# Load model
+model = load_model("models/autoencoder_model.keras")
+
+THRESHOLD = 0.01
 
 # Inputs
 center_temp = st.number_input("Center Temperature", value=0.0)
@@ -14,28 +20,15 @@ min_temp = st.number_input("Min Temperature", value=0.0)
 
 # Button
 if st.button("Predict"):
-    data = {
-        "center_temp": center_temp,
-        "max_temp": max_temp,
-        "min_temp": min_temp
-    }
+    input_data = np.array([[center_temp, max_temp, min_temp]])
 
-    try:
-        response = requests.post(
-            "http://127.0.0.1:8000/predict",
-            json=data
-        )
+    reconstructed = model.predict(input_data)
+    error = np.mean((input_data - reconstructed) ** 2)
 
-        result = response.json()
+    st.subheader("Result")
+    st.write(f"Reconstruction Error: {error}")
 
-        st.subheader("Result")
-
-        st.write(f"Reconstruction Error: {result['reconstruction_error']}")
-
-        if result["anomaly"]:
-            st.error("⚠️ Anomaly Detected!")
-        else:
-            st.success("✅ Normal Data")
-
-    except:
-        st.error("❌ API not running. Please start FastAPI first.")
+    if error > THRESHOLD:
+        st.error("⚠️ Anomaly Detected!")
+    else:
+        st.success("✅ Normal Data")
